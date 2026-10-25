@@ -1,12 +1,12 @@
 # AI Customer Support Copilot
 
 > **AI support copilot backend:** drafts polite, source-cited replies to customer tickets in Russian, English and Kyrgyz from a company knowledge base.
-> **Stack:** Python 3.13, FastAPI, SQLModel/SQLite, pytest; RAG on FAISS + multilingual-e5 + OpenAI/Anthropic via my [intelligent-document-search](https://github.com/Erbolka23/intelligent-document-search) engine.
+> **Stack:** Python 3.13, FastAPI, SQLModel/SQLite, pytest; RAG on FAISS + multilingual-e5 + OpenAI/Anthropic via my [intelligent-document-search](https://github.com/erbolka25/intelligent-document-search) engine.
 > **Key idea:** escalation instead of hallucination — if an answer can't be backed by a valid citation, the ticket goes to a human operator with a clear reason.
 
 Бэкенд помощника службы поддержки. Оператор загружает базу знаний компании (правила доставки, возвратов, оплаты, гарантии), клиенты присылают вопросы, а Copilot по каждому тикету пишет **черновик вежливого ответа с источниками** на языке клиента (RU / EN / KG). Если ответ нельзя подтвердить документами, тикет **эскалируется** оператору с понятной причиной. Отправлять клиенту ничего самостоятельно Copilot не умеет: последнее слово всегда за человеком (`resolve`).
 
-Поиск и генерацию выполняет мой RAG-движок [`document_search`](https://github.com/Erbolka23/intelligent-document-search) (локальная папка `python_in30days`; FAISS + sentence-transformers, ответы с цитатами `[n]`, протокол `NO_ANSWER`, фильтр фейковых цитат). Он подключён **как зависимость**, без копирования кода. Copilot — отдельный слой бизнес-логики поверх `RagService`: тикеты, черновики, статусы, эскалация.
+Поиск и генерацию выполняет мой RAG-движок [`document_search`](https://github.com/erbolka25/intelligent-document-search) (локальная папка `python_in30days`; FAISS + sentence-transformers, ответы с цитатами `[n]`, протокол `NO_ANSWER`, фильтр фейковых цитат). Он подключён **как зависимость**, без копирования кода. Copilot — отдельный слой бизнес-логики поверх `RagService`: тикеты, черновики, статусы, эскалация.
 
 ## Как принимается решение
 
