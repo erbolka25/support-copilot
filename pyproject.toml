@@ -25,6 +25,10 @@ dev = ["pytest", "httpx", "ruff"]
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+# The operator web UI; without this a non-editable install (Docker) ships no static files.
+support_copilot = ["api/static/*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 

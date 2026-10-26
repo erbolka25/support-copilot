@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from document_search.service import RagService
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import Engine
 
 from support_copilot.api import kb, tickets
@@ -11,6 +15,20 @@ from support_copilot.api.deps import RagDep
 from support_copilot.config import CopilotSettings
 from support_copilot.db import init_db, make_engine
 from support_copilot.schemas import Health
+
+STATIC_DIR = Path(__file__).parent / "static"
+# The page itself is never cached, so a new deploy is picked up on reload.
+NO_STORE = {"Cache-Control": "no-store"}
+
+
+class RevalidatedStaticFiles(StaticFiles):
+    """Static files the browser re-checks on every load (a cheap 304 via ETag), so an update
+    of app.js is picked up without a hard refresh."""
+
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
 
 
 def create_app(settings: CopilotSettings, rag: RagService, engine: Engine | None = None) -> FastAPI:
@@ -33,5 +51,12 @@ def create_app(settings: CopilotSettings, rag: RagService, engine: Engine | None
     def health(rag: RagDep) -> Health:
         stats = rag.stats()
         return Health(status="ok", documents=stats["documents"], llm_enabled=stats["llm_enabled"])
+
+    # Operator web UI: plain static files on top of the same API (Swagger stays at /docs).
+    app.mount("/static", RevalidatedStaticFiles(directory=STATIC_DIR), name="static")
+
+    @app.get("/", include_in_schema=False)
+    def index_page() -> FileResponse:
+        return FileResponse(STATIC_DIR / "index.html", headers=NO_STORE)
 
     return app

@@ -1,6 +1,6 @@
 # AI Customer Support Copilot
 
-> **AI support copilot backend:** drafts polite, source-cited replies to customer tickets in Russian, English and Kyrgyz from a company knowledge base.
+> **AI support copilot backend + operator web UI:** drafts polite, source-cited replies to customer tickets in Russian, English and Kyrgyz from a company knowledge base.
 > **Stack:** Python 3.13, FastAPI, SQLModel/SQLite, pytest; RAG on FAISS + multilingual-e5 + OpenAI/Anthropic via my [intelligent-document-search](https://github.com/erbolka25/intelligent-document-search) engine.
 > **Key idea:** escalation instead of hallucination — if an answer can't be backed by a valid citation, the ticket goes to a human operator with a clear reason.
 
@@ -110,6 +110,7 @@ support-copilot/
 │  ├─ rag.py         # Settings для document_search и сборка RagService
 │  ├─ drafting.py    # бизнес-логика: черновик / эскалация, шаблоны, цитаты
 │  ├─ api/           # app.py (фабрика), kb.py, tickets.py, deps.py
+│  │  └─ static/     # Web UI: index.html, app.css, common.js, app.js, i18n.json
 │  └─ main.py        # uvicorn support_copilot.main:app
 ├─ tests/            # pytest; фейковые эмбеддер и LLM в conftest.py
 ├─ demo/             # база знаний TechNomad + seed.py
@@ -163,8 +164,40 @@ Copilot читает **только свой** `support-copilot/.env`. Наст�
 uvicorn support_copilot.main:app --reload
 ```
 
+- Web UI оператора: http://127.0.0.1:8000/
 - Swagger UI: http://127.0.0.1:8000/docs
 - Health: http://127.0.0.1:8000/health → `{"status":"ok","documents":4,"llm_enabled":true}`
+
+## Web UI
+
+Интерфейс оператора поддержки по адресу `/`: одна страница, которую отдаёт сам FastAPI. Это статика (HTML + CSS + vanilla JS) в `src/support_copilot/api/static/`, без React, npm и сборки. Стиль общий с [intelligent-document-search](https://github.com/erbolka25/intelligent-document-search): те же цвета, светлая и тёмная тема, переключатель языка RU/EN. Фронтенд работает только через публичный API выше, отдельных эндпоинтов для него нет.
+
+![Support Copilot — интерфейс оператора: тикет с черновиком и источником [1]](docs/web-ui.png)
+
+| Область | Что умеет |
+|---|---|
+| **Шапка** | число документов в базе, подключён ли ИИ, язык RU/EN, тема. Если сервер не отвечает или ИИ не подключён, показывается плашка с объяснением |
+| **База знаний** (слева) | drag-and-drop загрузка `.txt` / `.pdf`, список документов. Ошибки сформулированы понятно: `413` — «файл слишком большой», `422` — «неподдерживаемый тип», пустой файл, битый PDF и т. д. |
+| **Тикеты** (центр) | форма «Новый тикет» (имя, email, вопрос) с проверкой полей, список с цветными бейджами статусов, фильтр `new / drafted / escalated / resolved` со счётчиками |
+| **Карточка тикета** (справа) | вопрос клиента; «Сгенерировать ответ» с индикатором загрузки; черновик с кликабельными `[n]`, которые подсвечивают источник; блок «Источники» (файл, страница, фрагмент); «Скопировать ответ», «Отметить решённым» (с подтверждением), история черновиков |
+
+Если тикет эскалирован, в карточке появляется плашка **«Передано оператору»**. В ней причина обычным языком (например, «В базе знаний нет ответа на этот вопрос» вместо `no_answer_in_kb`) и подсказка, что делать дальше. Ниже свёрнута заметка системы с исходным текстом. Кнопка повторной генерации для эскалированного тикета остаётся активной.
+
+![Эскалированный тикет: плашка «Передано оператору» с причиной и подсказкой](docs/escalation.png)
+
+Особенности:
+- **Адаптивность.** На телефоне одна колонка без горизонтального скролла, при выборе тикета страница прокручивается к карточке. При ширине от 900px две колонки, от 1200px три.
+- **Ссылка на тикет.** Выбранный тикет попадает в адрес страницы (`/#ticket-5`), такой ссылкой можно поделиться.
+- **Безопасность.** Всё, что пришло от клиента или сервера (имя, вопрос, черновик, фрагменты, имена файлов), вставляется только как текст (`textContent`), а не через `innerHTML`. Маркеры `[n]` разбираются на DOM-узлы. Тест `tests/test_web.py` следит, чтобы в скриптах не появились `innerHTML`, `insertAdjacentHTML` и подобные вызовы.
+- **Переводы.** Все строки интерфейса лежат в `static/i18n.json`, наборы ключей RU и EN совпадают (это тоже проверяет тест).
+- **Кэш.** Страница отдаётся с `no-store`, статика с `no-cache` (перепроверка по ETag), так что после обновления не нужен жёсткий refresh.
+
+Быстро посмотреть на демо-данных:
+
+```powershell
+uvicorn support_copilot.main:app --reload             # окно 1
+python demo/seed.py --url http://127.0.0.1:8000       # окно 2: 4 документа и 10 тикетов в data/
+```
 
 ## Примеры запросов
 
@@ -270,7 +303,8 @@ pytest -q
 - ошибки 404/409/413/422;
 - три языка ответа;
 - перенумерация и склейка цитат;
-- жизненный цикл `escalated → draft → drafted → resolved`.
+- жизненный цикл `escalated → draft → drafted → resolved`;
+- Web UI: `/` отдаёт HTML, статика доступна, Swagger на месте, ключи переводов RU и EN совпадают, у каждого статуса и причины эскалации есть подпись, в скриптах нет `innerHTML`.
 
 ## Docker
 
