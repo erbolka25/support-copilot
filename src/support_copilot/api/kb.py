@@ -6,10 +6,11 @@ from pathlib import PureWindowsPath
 
 from document_search.ingestion import IngestionError
 from document_search.service import DocumentLimitError, EmbeddingError
-from fastapi import APIRouter, Response, UploadFile, status
+from fastapi import APIRouter, Depends, Response, UploadFile, status
 from sqlmodel import select
 
 from support_copilot.api.deps import RagDep, SessionDep, SettingsDep, api_error
+from support_copilot.api.ratelimit import rate_limit
 from support_copilot.models import KnowledgeDocument
 from support_copilot.schemas import DocumentRead, DocumentUploaded, ErrorDetail
 
@@ -30,8 +31,10 @@ def clean_filename(name: str | None) -> str:
         409: {"model": ErrorDetail},
         413: {"model": ErrorDetail},
         422: {"model": ErrorDetail},
+        429: {"model": ErrorDetail},
         503: {"model": ErrorDetail},
     },
+    dependencies=[Depends(rate_limit)],
 )
 def upload_document(
     file: UploadFile, response: Response, session: SessionDep, rag: RagDep, settings: SettingsDep
