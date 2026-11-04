@@ -12,7 +12,6 @@ from sqlalchemy import Engine
 
 from support_copilot.api import kb, tickets
 from support_copilot.api.deps import RagDep
-from support_copilot.api.ratelimit import RateLimiter
 from support_copilot.config import CopilotSettings
 from support_copilot.db import init_db, make_engine
 from support_copilot.schemas import Health
@@ -45,9 +44,6 @@ def create_app(settings: CopilotSettings, rag: RagService, engine: Engine | None
     app.state.settings = settings
     app.state.rag = rag
     app.state.engine = engine
-    app.state.rate_limiter = (
-        RateLimiter(settings.rate_limit_per_hour) if settings.rate_limit_per_hour > 0 else None
-    )
     app.include_router(kb.router)
     app.include_router(tickets.router)
 

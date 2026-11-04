@@ -6,7 +6,6 @@ import logging
 
 from support_copilot.api.app import create_app
 from support_copilot.config import get_settings
-from support_copilot.demo_data import load_demo_data
 from support_copilot.rag import build_rag_service
 
 settings = get_settings()
@@ -14,7 +13,6 @@ logging.basicConfig(
     level=settings.log_level, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
 )
 app = create_app(settings, build_rag_service(settings))
-load_demo_data(settings, app.state.rag, app.state.engine)
 
 
 def run() -> None:

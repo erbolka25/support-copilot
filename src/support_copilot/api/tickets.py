@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from sqlmodel import select
 
 from support_copilot.api.deps import RagDep, SessionDep, SettingsDep, TicketDep, api_error
-from support_copilot.api.ratelimit import rate_limit
 from support_copilot.drafting import draft_reply
 from support_copilot.models import Draft, Ticket, TicketStatus
 from support_copilot.schemas import (
@@ -52,8 +51,7 @@ def get_ticket(ticket: TicketDep) -> Ticket:
     "/{ticket_id}/draft",
     response_model=DraftResult,
     status_code=201,
-    responses={**NOT_FOUND, 409: {"model": ErrorDetail}, 429: {"model": ErrorDetail}},
-    dependencies=[Depends(rate_limit)],
+    responses={**NOT_FOUND, 409: {"model": ErrorDetail}},
 )
 def draft_ticket(
     ticket: TicketDep, session: SessionDep, rag: RagDep, settings: SettingsDep

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from document_search.config import Settings as RagSettings
-from document_search.generation import OpenAIClient
 from document_search.service import RagService, build_service
 
 from support_copilot.config import CopilotSettings
@@ -37,32 +36,6 @@ def rag_settings(settings: CopilotSettings) -> RagSettings:
     )
 
 
-class OpenAICompatibleClient(OpenAIClient):
-    """OpenAIClient pointed at another OpenAI-compatible API (Groq, OpenRouter, a local server).
-
-    document_search always talks to api.openai.com, so the bridge swaps in a client with our
-    base URL; prompts, error mapping and the citation rules stay the engine's own.
-    """
-
-    def __init__(self, base_url: str, api_key: str, **kwargs) -> None:
-        super().__init__(api_key=api_key, **kwargs)
-        self._client = self._openai.OpenAI(
-            api_key=api_key, base_url=base_url, timeout=kwargs.get("timeout_s", 60.0), max_retries=2
-        )
-
-
 def build_rag_service(settings: CopilotSettings) -> RagService:
     """The real service: sentence-transformers embedder (loaded lazily), persisted index, LLM."""
-    rs = rag_settings(settings)
-    service = build_service(rs)
-    api_key = rs.llm_api_key()
-    if settings.llm_base_url and settings.llm_provider == "openai" and api_key:
-        service.llm = OpenAICompatibleClient(
-            base_url=settings.llm_base_url,
-            api_key=api_key,
-            model=rs.resolved_llm_model,
-            effort=rs.llm_effort,
-            max_tokens=rs.llm_max_tokens,
-            timeout_s=rs.llm_timeout_s,
-        )
-    return service
+    return build_service(rag_settings(settings))
